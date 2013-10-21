@@ -959,7 +959,7 @@ public class MessageCompose extends Activity implements OnClickListener, OnFocus
                     // Use a best guess and infer the action here.
                     String inferredAction = inferAction();
                     if (inferredAction != null) {
-                        setAction(inferredAction);
+                        mAction = inferredAction;
                         // No need to update the action selector as switching actions should do it.
                         return;
                     }
@@ -1557,7 +1557,7 @@ public class MessageCompose extends Activity implements OnClickListener, OnFocus
         Intent i = new Intent(Intent.ACTION_GET_CONTENT);
         i.addCategory(Intent.CATEGORY_OPENABLE);
         i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
-        i.setType(AttachmentUtilities.ACCEPTABLE_ATTACHMENT_SEND_UI_TYPES[0]);
+        i.setType(AttachmentUtilities.ACCEPTABLE_ATTACHMENT_SEND_INTENT_TYPES[0]);
         mPickingAttachment = true;
         startActivityForResult(
                 Intent.createChooser(i, getString(R.string.choose_attachment_dialog_title)),
@@ -1597,8 +1597,7 @@ public class MessageCompose extends Activity implements OnClickListener, OnFocus
             if (size <= 0) {
                 // The size was not measurable;  This attachment is not safe to use.
                 // Quick hack to force a relevant error into the UI
-                // TODO: A proper announcement of the problem
-                size = AttachmentUtilities.MAX_ATTACHMENT_UPLOAD_SIZE + 1;
+                size = AttachmentUtilities.ATTACHMENT_UPLOAD_NO_SIZE;
             }
         }
 
@@ -1614,6 +1613,10 @@ public class MessageCompose extends Activity implements OnClickListener, OnFocus
         // Before attaching the attachment, make sure it meets any other pre-attach criteria
         if (attachment.mSize > AttachmentUtilities.MAX_ATTACHMENT_UPLOAD_SIZE) {
             Toast.makeText(this, R.string.message_compose_attachment_size, Toast.LENGTH_LONG)
+                    .show();
+            return;
+        } else if (attachment.mSize == AttachmentUtilities.ATTACHMENT_UPLOAD_NO_SIZE) {
+            Toast.makeText(this, R.string.message_compose_attachment_no_size, Toast.LENGTH_LONG)
                     .show();
             return;
         }
@@ -2068,10 +2071,7 @@ public class MessageCompose extends Activity implements OnClickListener, OnFocus
             } else {
                 to = decode(mailToString.substring(length, index));
             }
-
-            if (!TextUtils.isEmpty(to.trim())) {
-                addAddresses(mToView, to.split(" ,"));
-            }
+            addAddresses(mToView, to.split(" ,"));
         } catch (UnsupportedEncodingException e) {
             Log.e(Logging.LOG_TAG, e.getMessage() + " while decoding '" + mailToString + "'");
         }
@@ -2210,7 +2210,6 @@ public class MessageCompose extends Activity implements OnClickListener, OnFocus
             subject = "";
         }
         if (ACTION_REPLY.equals(mAction) || ACTION_REPLY_ALL.equals(mAction)) {
-            mController.setMessageRead(message.mId, true);
             setupAddressViews(message, account, ACTION_REPLY_ALL.equals(mAction));
             if (!subject.toLowerCase().startsWith("re:")) {
                 mSubjectView.setText("Re: " + subject);
